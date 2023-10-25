@@ -2,10 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
      
 #define NMAX 1e6  // maximum number of time steps 
 #define IMAX 500  // total number of cells
-
+#define DAT_PATH "heat-dat-files"
 
 char* trim(char *s) {
 
@@ -20,7 +21,7 @@ char* trim(char *s) {
     for (ptr = s + strlen(s)-1; (ptr >= s) && isspace(*ptr); --ptr);
 
     // Sets the first num bytes of the block of memory pointed by ptr to the specified valu).
-    *ptr = '\0';
+    ptr[1] = '\0';
     return s;
 }
 
@@ -34,7 +35,7 @@ void DataOutput( int timestep, char testname[200], int imax, float time, float *
   /*__________________________________*/
 
     trim( testname );
-    sprintf(IOFilename, "%s-%d.dat", testname, timestep);
+    sprintf(IOFilename, "%s/%s-%04d.dat", DAT_PATH, testname, timestep);
 
     fp = fopen( IOFilename, "w+t");
     if ( fp == NULL ) {
@@ -116,7 +117,7 @@ int main(int argc, char **argv){
     T1 = (float*) malloc( IMAX * sizeof ( float ) );
 
     //  1) Building computational domain  
-    dx = ( xR - xL ) / (float) ( IMAX -1 );
+    dx = ( xR - xL ) / (float)( IMAX -1 );
     dx2 = dx * dx;
     x[0] = xL;
 
@@ -126,7 +127,7 @@ int main(int argc, char **argv){
     }
 
     //  2) Initial condition  
-    for (i = 0; i < IMAX; i++ ){
+    for (i = 0; i <= IMAX; i++ ){
         if ( x[i] < xD )
             T[i] = TL;
         else
@@ -134,8 +135,14 @@ int main(int argc, char **argv){
     }
 
     // ___ 3) Computation: main loop in time _____________ 
+
+        puts( " | ");
+        puts( " | Explicit finite difference solver. ");
+        puts( " | ");
+        puts( " | START of the COMPUTATION ");
+
     int n;
-    for ( n = 0; n < NMAX; n ++ ) {
+    for ( n = 0; n <= NMAX; n++ ) {
 
         // 3.1) Compute the time step 
         if ( time >= tend ) 
@@ -149,11 +156,12 @@ int main(int argc, char **argv){
         
         }
         if ( ( time + dt ) > tio ) {
-        
-            dt = tend - time;
-        
+            dt = tio - time;
         } 
 
+        /* 3.2) Numerical scheme: FTCS */
+    
+        // EXPLICIT SOLVER
         for ( i = 1; i < (IMAX-1); i++ ) {
             T1[i] = T[i] + kappa * (dt/dx2) *(T[i-1] - 2*T[i] + T[i+1]);
         }
@@ -163,12 +171,11 @@ int main(int argc, char **argv){
         time = time + dt;   // Update time
         T = T1;             // Overwrite current Solution
          
-        if ( abs( time -tio ) < 1e-12 ){
+        if ( fabs( time - tio ) < 1e-12 ){
+            printf(" | \tPlotting data output at time %.7f\n", time);
             DataOutput(n, TestName, IMAX,time,x,T);
             tio += dtio;
         } 
     }
-
-    
     return 0;
 }
